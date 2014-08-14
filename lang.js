@@ -47,20 +47,6 @@ var expr_tree = {
     ]
 };
 
-
-function findWord(code) {
-    var expr, match;
-    var word_pat = /^[^\s(),]+/;
-    if (word_pat.test(code)) {
-        match = word_pat.exec(code)
-        expr = {type: "word",
-                name: match[0]};
-    } else {
-        throw new SyntaxError("Expected symbol: " + code);
-    }
-    return expr;
-}
-
 function parse(program) {
     program = program.trim();
     var expr = parseExpression(program);
@@ -82,6 +68,7 @@ function parse(program) {
     }
 
     function parseExpression(program) {
+        
         if (program[0] === '(') {
             //we are dealing with a nested expression
             program = program.slice(1) // rm '('
@@ -107,7 +94,6 @@ function parse(program) {
         var str_lit_pat = /^"([^"]*)"/; // string literal
         var number_pat = /^\d+\b/; 
         var word_pat = /^[^\s(),]+/;
-        var expr_pat = /^\([\s\S]+?\)/;
         
         if (str_lit_pat.test(code)) {
             match = str_lit_pat.exec(code);
@@ -141,4 +127,5 @@ function parse(program) {
 
 var parsed_code = parse(example_code);
 //console.log(JSON.stringify(example_code_tree))
-console.log(JSON.stringify(parsed_code) === JSON.stringify(example_code_tree));
+console.log(JSON.stringify(parsed_code) ===
+            JSON.stringify(example_code_tree));
