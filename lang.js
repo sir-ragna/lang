@@ -121,13 +121,157 @@ function parse(program) {
     return expr;
 }
 
+function evaluator(syntaxTree) {
+    var environment = {};
+    
+    environment["true"] = true;
+    environment["false"] = false;
+    
+    environment["if"] = function(args, env) {
+        if (args.length !== 2 && args.length !== 3) {
+            throw new SyntaxError("'if' takes 2 or 3 arguments");
+        }
+        
+        if (evaluate(args[0], env) !== false) {
+            return evaluate(args[1], env);
+        } else if (args[2] !== undefined) {
+            return evaluate(args[2], env);
+        }
+        return false; // expression given when false
+    }
+    
+    environment["do"] = function(args, env) {
+        var value = false;
+        args.forEach(function(arg){
+            value = evaluate(arg, env);
+        });
+        return value;
+    }
+    
+    environment["let"] = function(args, env){
+        if (args[0].type !== "symbol" || args[1].type !== "value") {
+            throw new SyntaxError("'let' expectes a symbol and a value");
+        }
+        var varName = args.shift().name; // first argument
+        var varVal  = evaluate(args.shift(), env);
+        
+        env[varName] = varVal;
+        
+        return environment["do"](args, env);
+    }
+    
+    environment["print"] = function(args, env) {
+        var value = args.map(function(arg){
+            return evaluate(arg, env);
+        }).reduce(function(a, b){
+            return "" + a + "" + b;
+        })
+        console.log(value);
+        return value;
+    }
+    
+    environment["str"] = function(args, env) {
+        var value = args.map(function(arg){
+            return evaluate(arg, env);
+        }).reduce(function(a, b){
+            return "" + a + "" + b;
+        })
+        return value;
+    }
+    
+    environment["or"] = function(args, env) {
+        var value = false;
+        args.forEach(function(arg) {
+            if (evaluate(arg, env) === true) {
+                value = true;
+            }
+        });
+        return value;
+    };
+        
+    function addFunctionToEnv(name, func) {
+        /** most functions except some special ones prefer getting evaluated arguments.
+         * This wrapper evaluates their values before adding them to the environment.
+         */
+        environment[name] = function(args, env) {
+            return func.apply(null, args.map(function(arg) {
+                return evaluate(arg, env);
+            }));
+        };
+    }
+    
+    addFunctionToEnv("add", function() {
+        return Array.prototype.slice.call(arguments).reduce(function(a, b){ return a + b; });
+    });
+    
+    addFunctionToEnv("eq", function(a, b) {
+        return a === b;
+    });
+    
+    addFunctionToEnv("gt", function(a, b) {
+        return a > b;
+    });
+    
+    addFunctionToEnv("lt", function(a, b) {
+        return a < b;
+    });
+    
+    addFunctionToEnv("min", function(a, b) {
+        if (b === undefined) {
+            return -a;
+        }
+        return a - b;
+    });
+    
+    addFunctionToEnv("inc", function(a) {
+        return a + 1;
+    });
+    
+    addFunctionToEnv("dec", function(a) {
+        return a - 1;
+    });
+    
+    function evaluate(expr, env) {
+        switch(expr.type) {
+            case "value":
+                return expr.value
+            case "symbol":
+                if (expr.name in env) {
+                    return env[expr.name];
+                } else {
+                    throw new ReferenceError("Undefined symbol: " + expr.name);
+                }
+            case "apply":
+                var operator = expr.args.shift();
+                var args = expr.args;
+                // evaluate before or inside call?
+                return evaluate(operator, env)(args, env);
+        }
+        throw new TypeError("Unexpected");
+    
+    }
+    return evaluate(syntaxTree, environment);
+}
+
+function run(args) {
+    return evaluator(parse(args));
+}
+
+run("(print (add 4 3 10))");
+run("(print (eq false true))");
+run("(print (eq false false))");
+run("(print \"Hello \" \"World!\")");
+run(["(do (let x 10",
+     "     (if (gt x 5)",
+     "       (print \"large\")",
+     "       (print \"small\"))))"
+   ].join('\n'));
 
 var output_parser = JSON.stringify(parse(expr_code));
 var output_manual = JSON.stringify(expr_tree);
 var parsed_code = parse(example_code);
 
-console.log(output_parser);
-console.log(output_manual);
+
 console.log(output_parser === output_manual);
 
 console.log(JSON.stringify(parsed_code) ===
