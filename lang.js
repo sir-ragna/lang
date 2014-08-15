@@ -8,29 +8,29 @@ var example_code = [ "(do (let x 10",
 var example_code_tree = {
     type: "apply",
     args: [
-        {type: "word", name: "do"}, // operator
+        {type: "symbol", name: "do"}, // operator
         {type: "apply",
          args: [
-            {type: "word", name: "let"}, // operator
-            {type: "word", name: "x"},   // word def
-            {type: "value", value: 10},  // word val
+            {type: "symbol", name: "let"}, // operator
+            {type: "symbol", name: "x"},   // symbol def
+            {type: "value", value: 10},  // symbol val
             {type: "apply",              // rest
              args: [
-                {type: "word", name: "if"},
+                {type: "symbol", name: "if"},
                 {type: "apply",
                  args: [
-                    {type: "word", name: ">"},
-                    {type: "word", name: "x"},
+                    {type: "symbol", name: ">"},
+                    {type: "symbol", name: "x"},
                     {type: "value", value: 5}
                  ]},
                 {type: "apply",
                  args: [
-                    {type: "word", name: "print"},
+                    {type: "symbol", name: "print"},
                     {type: "value", value: "large"}
                  ]},
                 {type: "apply",
                  args: [
-                    {type: "word", name: "print"},
+                    {type: "symbol", name: "print"},
                     {type: "value", value: "small"}
                  ]}
              ]}
@@ -40,9 +40,9 @@ var example_code_tree = {
 var expr_code = "(> x 5)";
 var expr_tree = {
     type: "apply",
-    operator: { type: "word", name: ">"},
     args: [
-        {type: "word", name: "x"},
+        {type: "symbol", name: ">"},
+        {type: "symbol", name: "x"},
         {type: "value", value: 5}
     ]
 };
@@ -77,8 +77,7 @@ function parse(program) {
                 var arg = parseArg(program);
                 expr.args.push(arg.expr);
                 program = arg.rest.trim();
-            }
-            
+            }  
         } else {
             throw new SyntaxError("Expected '(': " + program);
         }
@@ -93,7 +92,7 @@ function parse(program) {
         var match = [];
         var str_lit_pat = /^"([^"]*)"/; // string literal
         var number_pat = /^\d+\b/; 
-        var word_pat = /^[^\s(),]+/;
+        var symbol_pat = /^[^\s(),]+/;
         
         if (str_lit_pat.test(code)) {
             match = str_lit_pat.exec(code);
@@ -103,9 +102,9 @@ function parse(program) {
             match = number_pat.exec(code)
             expr = {type: "value",
                     value: Number(match[0])};
-        } else if (word_pat.test(code)) {
-            match = word_pat.exec(code)
-            expr = {type: "word",
+        } else if (symbol_pat.test(code)) {
+            match = symbol_pat.exec(code)
+            expr = {type: "symbol",
                     name: match[0]};
         } else if (code[0] === '(') {
             match_pos = findMatchingParen(code);
@@ -122,10 +121,14 @@ function parse(program) {
     return expr;
 }
 
-//console.log(parse("(> x (+ 4 3))"));
 
-
+var output_parser = JSON.stringify(parse(expr_code));
+var output_manual = JSON.stringify(expr_tree);
 var parsed_code = parse(example_code);
-//console.log(JSON.stringify(example_code_tree))
+
+console.log(output_parser);
+console.log(output_manual);
+console.log(output_parser === output_manual);
+
 console.log(JSON.stringify(parsed_code) ===
             JSON.stringify(example_code_tree));
