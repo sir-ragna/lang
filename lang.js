@@ -180,15 +180,25 @@ function evaluator(syntaxTree) {
     }
     
     environment["or"] = function(args, env) {
-        var value = false;
-        args.forEach(function(arg) {
-            if (evaluate(arg, env) === true) {
-                value = true;
+        var index = 0;
+        for (; index < args.length; index++) {
+            if (evaluate(args[index], env) === true) {
+                return true; // be lazy
             }
-        });
-        return value;
+        }
+        return true;
     };
-        
+    
+    environment["and"] = function(args, env) {
+        var index = 0;
+        for (; index < args.length; index++) {
+            if (evaluate(args[index], env) === false) {
+                return false; // be lazy
+            }
+        }
+        return true;
+    }
+    
     function addFunctionToEnv(name, func) {
         /** most functions except some special ones prefer getting evaluated arguments.
          * This wrapper evaluates their values before adding them to the environment.
@@ -266,6 +276,20 @@ run(["(do (let x 10",
      "       (print \"large\")",
      "       (print \"small\"))))"
    ].join('\n'));
+run("(print \"Should be false: \" (or false))");
+run("(print \"Should be false: \" (or false false false))");
+run("(print \"Should be true: \" (or false false true))");
+run("(print \"Should be true: \" (or false true true))");
+run("(print \"Should be true: \" (or true false false))");
+run("(print \"Should be false: \" (and false))");
+run("(print \"Should be false: \" (and false false false))");
+run("(print \"Should be true: \" (and true true true))");
+run("(print \"Should be false: \" (and false true true))");
+run("(print \"Should be false: \" (and true true false))");
+run("(print \"Should be true: \" (and true))");
+
+run("(or (print \"This will be printed\") true (print \"but this won't be printed\"))");
+
 
 var output_parser = JSON.stringify(parse(expr_code));
 var output_manual = JSON.stringify(expr_tree);
