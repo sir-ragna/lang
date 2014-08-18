@@ -148,9 +148,9 @@ function evaluator(syntaxTree) {
         return value;
     }
     
-    environment["let"] = function(args, env){
-        if (args[0].type !== "symbol" || args[1].type !== "value") {
-            throw new SyntaxError("'let' expectes a symbol and a value");
+    environment["def"] = function(args, env){
+        if (args[0].type !== "symbol" || args[1] == undefined) {
+            throw new SyntaxError("'def' expectes a symbol and a value");
         }
         var varName = args.shift().name; // first argument
         var varVal  = evaluate(args.shift(), env);
@@ -158,6 +158,59 @@ function evaluator(syntaxTree) {
         env[varName] = varVal;
         
         return environment["do"](args, env);
+    }
+    
+    environment["defn"] = function(args, env) {
+        /** example: (defun times2 (args x) (do (multi x 2)))
+         *  times2 being the function name
+         *  (args x) telling us we expect 'times2' being called with 'x' as an argument
+         *  (do ...) body of the function
+         */
+      
+        function getFunctionArguments(argDefinitions) {
+            if (argDefinitions.type !== "apply" || argDefinitions.args[0].name !== "args") {
+                throw new SyntaxError("Expected an arguments definitions for: " + functionName);
+            }
+            return argDefinitions.args.slice(1).map(function(arg) { return arg.name; });
+        }
+        
+        var functionName;
+        var functionArguments = [];
+        var functionBody;
+        
+        if (args[0].type !== "symbol") {
+            throw new SyntaxError("'defun' expects a function name(symbol)");
+        }
+        
+        functionName = args.shift().name;
+        
+        functionArguments = getFunctionArguments(args.shift());
+        
+        if (args[0].type !== "apply") {
+            throw new SyntaxError("Expected function body");
+        }
+        
+        functionBody = args.shift();
+        
+        if (functionName in environment) {
+            throw new SyntaxError("Function already exists");
+        }
+        
+        environment[functionName] = function(callingArgs, callingEnv) {
+            // check if fArgs length matches function arguments
+            if (functionArguments.length !== callingArgs.length) {
+                throw new Error("Calling function with wrong number of arguments: " + functionName);
+            }
+            
+            for (var i = 0; i < callingArgs.length; i++) {
+                callingEnv[functionArguments[i]] = evaluate(callingArgs[i], callingEnv);
+            }
+            console.log("functionbody");
+            console.log(functionBody);
+            //
+            return evaluate(functionBody, callingEnv);
+        }
+        return functionName;
     }
     
     environment["print"] = function(args, env) {
@@ -186,7 +239,7 @@ function evaluator(syntaxTree) {
                 return true; // be lazy
             }
         }
-        return true;
+        return false;
     };
     
     environment["and"] = function(args, env) {
@@ -233,7 +286,12 @@ function evaluator(syntaxTree) {
         return a - b;
     });
     
+    addFunctionToEnv("multi", function() {
+        return Array.prototype.slice.call(arguments).reduce(function(a, b){ return a * b; }, 1);
+    });
+    
     addFunctionToEnv("inc", function(a) {
+        console.log(a);
         return a + 1;
     });
     
@@ -242,6 +300,10 @@ function evaluator(syntaxTree) {
     });
     
     function evaluate(expr, env) {
+        if (env === undefined) {
+            throw new Error("Environment is not defined");
+        }
+        
         switch(expr.type) {
             case "value":
                 return expr.value
@@ -254,8 +316,16 @@ function evaluator(syntaxTree) {
             case "apply":
                 var operator = expr.args.shift();
                 var args = expr.args;
+                //console.log(expr.args);
                 // evaluate before or inside call?
-                return evaluate(operator, env)(args, env);
+                //console.log("APPLY");
+                //console.log(operator);
+                //console.log(env);
+                var func = evaluate(operator, env)
+                if (typeof func !== 'function') {
+                    throw new Error("Cannot apply non-function: " + func);
+                }
+                return func(args, env);
         }
         throw new TypeError("Unexpected");
     
@@ -264,39 +334,51 @@ function evaluator(syntaxTree) {
 }
 
 function run(args) {
-    return evaluator(parse(args));
+    var output = evaluator(parse(args));
+    console.log("Program exit output: " + output);
+    return output;
 }
 
-run("(print (add 4 3 10))");
-run("(print (eq false true))");
-run("(print (eq false false))");
-run("(print \"Hello \" \"World!\")");
-run(["(do (let x 10",
-     "     (if (gt x 5)",
-     "       (print \"large\")",
-     "       (print \"small\"))))"
-   ].join('\n'));
-run("(print \"Should be false: \" (or false))");
-run("(print \"Should be false: \" (or false false false))");
-run("(print \"Should be true: \" (or false false true))");
-run("(print \"Should be true: \" (or false true true))");
-run("(print \"Should be true: \" (or true false false))");
-run("(print \"Should be false: \" (and false))");
-run("(print \"Should be false: \" (and false false false))");
-run("(print \"Should be true: \" (and true true true))");
-run("(print \"Should be false: \" (and false true true))");
-run("(print \"Should be false: \" (and true true false))");
-run("(print \"Should be true: \" (and true))");
+function printTree(program) {
+    var tree = parse(program);
+    console.log(tree);
+    return tree;
+}
 
-run("(or (print \"This will be printed\") true (print \"but this won't be printed\"))");
+//run("(print (add 4 3 10))");
+//run("(print (eq false true))");
+//run("(print (eq false false))");
+//run("(print \"Hello \" \"World!\")");
+//run(["(do (def x 10",
+//     "     (if (gt x 5)",
+//     "       (print \"large\")",
+//     "       (print \"small\"))))"
+//   ].join('\n'));
+//run("(print \"Should be false: \" (or false))");
+//run("(print \"Should be false: \" (or false false false))");
+//run("(print \"Should be true: \" (or false false true))");
+//run("(print \"Should be true: \" (or false true true))");
+//run("(print \"Should be true: \" (or true false false))");
+//run("(print \"Should be false: \" (and false))");
+//run("(print \"Should be false: \" (and false false false))");
+//run("(print \"Should be true: \" (and true true true))");
+//run("(print \"Should be false: \" (and false true true))");
+//run("(print \"Should be false: \" (and true true false))");
+//run("(print \"Should be true: \" (and true))");
+//
+//run("(or (print \"This will be printed\") true (print \"but this won't be printed\"))");
+//run(["(do (defn plusOne (args n) (if (lt n 200) (print (inc n)) (print \"Finished\"))","     (plusOne 100))"].join(''));
 
+run("(do (defn pprint (args s i) (if (gt 0 i)(print \"DONE\")(do (print s)(pprint s (dec i))))) (pprint \"Hello World\" 10))");
+//run("(def i 10 (dec (dec i)))");
+//console.log(JSON.stringify( parse("(do (defn pprint (args s i) (if (gt 0 i)(print \"DONE\")(do (print s)(pprint s (dec i))))) (pprint \"Hello World\" 10))")));
 
-var output_parser = JSON.stringify(parse(expr_code));
-var output_manual = JSON.stringify(expr_tree);
-var parsed_code = parse(example_code);
-
-
-console.log(output_parser === output_manual);
-
-console.log(JSON.stringify(parsed_code) ===
-            JSON.stringify(example_code_tree));
+//var output_parser = JSON.stringify(parse(expr_code));
+//var output_manual = JSON.stringify(expr_tree);
+//var parsed_code = parse(example_code);
+//
+//
+//console.log(output_parser === output_manual);
+//
+//console.log(JSON.stringify(parsed_code) ===
+//            JSON.stringify(example_code_tree));
