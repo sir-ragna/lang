@@ -314,13 +314,9 @@ function evaluator(syntaxTree) {
                     throw new ReferenceError("Undefined symbol: " + expr.name);
                 }
             case "apply":
-                var operator = expr.args.shift();
-                var args = expr.args;
-                //console.log(expr.args);
-                // evaluate before or inside call?
-                //console.log("APPLY");
-                //console.log(operator);
-                //console.log(env);
+                var operator = expr.args[0];
+                var args = expr.args.slice(1);
+             
                 var func = evaluate(operator, env)
                 if (typeof func !== 'function') {
                     throw new Error("Cannot apply non-function: " + func);
