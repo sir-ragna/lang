@@ -91,11 +91,16 @@ function parse(program) {
         var expr = {};
         var match = [];
         var str_lit_pat = /^"([^"]*)"/; // string literal
-        var number_pat = /^\d+\b/; 
+        var alt_str_lit_pat = /^'([^']*)'/; // alternative string literal
+        var number_pat = /^-?\d+\b/; 
         var symbol_pat = /^[^\s(),]+/;
         
         if (str_lit_pat.test(code)) {
             match = str_lit_pat.exec(code);
+            expr = {type: "value",
+                    value: match[1]};
+        } else if (alt_str_lit_pat.test(code)) {
+            match = alt_str_lit_pat.exec(code);
             expr = {type: "value",
                     value: match[1]};
         } else if (number_pat.test(code)) {
@@ -161,7 +166,7 @@ function evaluator(syntaxTree) {
     }
     
     environment["defn"] = function(args, env) {
-        /** example: (defun times2 (args x) (do (multi x 2)))
+        /** example: (defn times2 (args x) (do (multi x 2)))
          *  times2 being the function name
          *  (args x) telling us we expect 'times2' being called with 'x' as an argument
          *  (do ...) body of the function
@@ -205,9 +210,7 @@ function evaluator(syntaxTree) {
             for (var i = 0; i < callingArgs.length; i++) {
                 callingEnv[functionArguments[i]] = evaluate(callingArgs[i], callingEnv);
             }
-            console.log("functionbody");
-            console.log(functionBody);
-            //
+
             return evaluate(functionBody, callingEnv);
         }
         return functionName;
@@ -291,7 +294,6 @@ function evaluator(syntaxTree) {
     });
     
     addFunctionToEnv("inc", function(a) {
-        console.log(a);
         return a + 1;
     });
     
@@ -306,7 +308,7 @@ function evaluator(syntaxTree) {
         
         switch(expr.type) {
             case "value":
-                return expr.value
+                return expr.value;
             case "symbol":
                 if (expr.name in env) {
                     return env[expr.name];
@@ -331,15 +333,52 @@ function evaluator(syntaxTree) {
 
 function run(args) {
     var output = evaluator(parse(args));
-    console.log("Program exit output: " + output);
+    //console.log("Program exit output: " + output);
     return output;
 }
 
 function printTree(program) {
     var tree = parse(program);
+    console.log(JSON.stringify(tree));
     console.log(tree);
     return tree;
 }
+
+function assert(code, value) {
+    var ret_value = run(code);
+    if (ret_value === value) {
+        console.log("Test Succeeded ✔️: " + code + " 👉 " + value)
+    } else {
+        console.error("Test Failed ❌: " + code + " 👉 " + '(' + ret_value + ') != ' + value);
+    }
+}
+
+assert("(add 4 3 10)", 17);
+assert("(min 10 4)", 6);
+assert("(min 10 22)", -12);
+assert("(eq false true)", false);
+assert("(eq false false)", true);
+assert("(str \"Hello \" \"World!\")", "Hello World!");
+assert("(str \"Hello \" 'World!')", "Hello World!");
+assert("(str 'aaaa' 'bbbb')", "aaaabbbb");
+assert("(str \"a\" 'b' \"c\" 'd')", "abcd");
+assert("(do (def x 10 (if (gt x 5) 'large' 'small')))", "large");
+assert("(do true)", true);
+assert("(do false)", false);
+assert("(do (def x 3 (do x)))", 3);
+assert("(def a 2 a)", 2);
+assert("(or false)", false);
+assert("(or true)", true);
+assert("(or true false)", true);
+assert("(or false false true)", true);
+assert("(or false false 0 false)", false);
+assert("(and false)", false);
+assert("(and true)", true);
+assert("(and true 1)", true);
+assert("(and true 1 4)", true);
+assert("(def x 1 (and true 1 x))", true);
+assert("(do (defn minusTwenty (args n) (min n 20)) (minusTwenty 100))", 80);
+assert("(do (defn repeat (args s i) (if (eq 1 i) s (repeat (str s s) (dec i)))) (repeat 'ab' 2))", 'abab');
 
 //run("(print (add 4 3 10))");
 //run("(print (eq false true))");
@@ -365,7 +404,9 @@ function printTree(program) {
 //run("(or (print \"This will be printed\") true (print \"but this won't be printed\"))");
 //run(["(do (defn plusOne (args n) (if (lt n 200) (print (inc n)) (print \"Finished\"))","     (plusOne 100))"].join(''));
 
-run("(do (defn pprint (args s i) (if (gt 0 i)(print \"DONE\")(do (print s)(pprint s (dec i))))) (pprint \"Hello World\" 10))");
+//var s = "(do (defn pprint (args s i) (if (gt 0 i)(print \"DONE\")(do (print s)(pprint s (dec i))))) (pprint \"Hello World\" 10))";
+//printTree(s);
+//run("(do (defn pprint (args s i) (if (gt 0 i)(print \"DONE\")(do (print s)(pprint s (dec i))))) (pprint \"Hello World\" 10))");
 //run("(def i 10 (dec (dec i)))");
 //console.log(JSON.stringify( parse("(do (defn pprint (args s i) (if (gt 0 i)(print \"DONE\")(do (print s)(pprint s (dec i))))) (pprint \"Hello World\" 10))")));
 
